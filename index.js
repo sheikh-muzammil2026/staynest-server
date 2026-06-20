@@ -93,6 +93,50 @@ app.get('/featuredProperties', async (req, res) => {
        
     });
 
+app.get("/favorites/check", async (req, res) => {
+    try {
+        const { email, propertyId } = req.query;
+
+        if (!email || !propertyId) {
+            return res.status(400).json({ isFavorite: false, message: "Missing query parameters" });
+        }
+
+        // ডাটাবেসে এই ইউজার এবং প্রোপার্টির কোনো রেকর্ড আছে কিনা চেক করা
+        const favorite = await favoritesCollection.findOne({ 
+            tenantEmail: email, 
+            propertyId: propertyId 
+        });
+
+        if (favorite) {
+            // যদি খুঁজে পাওয়া যায়
+            return res.json({ isFavorite: true, favoriteId: favorite._id });
+        } else {
+            // যদি খুঁজে না পাওয়া যায়
+            return res.json({ isFavorite: false });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ isFavorite: false, error: "Internal server error" });
+    }
+});
+
+app.delete('/favorites', async (req, res) => {
+    try {
+        const { favItemId, tenantEmail } = req.query;
+        const query = { 
+            _id: new ObjectId(favItemId), 
+            tenantEmail: tenantEmail
+        };
+       
+    
+        const removedDoc = await favoritesCollection.deleteOne(query);
+        res.json(removedDoc);
+    } catch (error) {
+        console.log(error.message);
+        res.status(500).json({ error: "Failed to remove from favorites" });
+    }
+});
+
     app.post('/bookings', (req, res)=>{
     const bookingData = req.body;
     const result = bookingsCollection.insertOne(bookingData)
