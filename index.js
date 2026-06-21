@@ -38,6 +38,7 @@ async function run() {
     const reviewsCollection = database.collection("reviews");
     const bookingsCollection = database.collection("bookings");
     const favoritesCollection = database.collection("favorites");
+    const userCollection = database.collection("user");
    
    app.get('/properties', async (req, res) => {
     try {
@@ -150,6 +151,55 @@ app.delete('/properties/admin', async (req, res) => {
     console.error("Delete Error:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
+});
+
+// ১. সমস্ত ইউজার রিড করা
+app.get('/users', async (req, res) => {
+    try {
+        const users = await userCollection.find({}).toArray();
+        res.json(users);
+    } catch (error) {
+        console.error("Error fetching users:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+// ২. ইউজারের রোল পরিবর্তন করা
+app.patch('/users/role', async (req, res) => {
+    try {
+        const { id, role } = req.body;
+        if (!id || !role) {
+            return res.status(400).json({ error: "Missing required fields" });
+        }
+
+        const filter = { _id: new ObjectId(id) };
+        const updatedDoc = {
+            $set: { role: role }
+        };
+
+        const result = await userCollection.updateOne(filter, updatedDoc);
+        res.json(result);
+    } catch (error) {
+        console.error("Error updating user role:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+// ৩. ইউজার পার্মানেন্টলি ডিলিট করা
+app.delete('/users', async (req, res) => {
+    try {
+        const { id } = req.body;
+        if (!id) {
+            return res.status(400).json({ error: "User ID is required" });
+        }
+
+        const query = { _id: new ObjectId(id) };
+        const result = await userCollection.deleteOne(query);
+        res.json(result);
+    } catch (error) {
+        console.error("Error deleting user:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
   
 
