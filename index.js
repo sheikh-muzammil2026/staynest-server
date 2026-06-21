@@ -74,9 +74,88 @@ app.get('/featuredProperties', async (req, res) => {
        
     });
 
-  app.post('/reviews', (req, res)=>{
+// ১. নতুন প্রপার্টি অ্যাড করার API (Express)
+app.post('/owner/properties', async (req, res) => {
+  try {
+    const propertyData = req.body;
+    
+    // ডাটাবেজে ইনসার্ট করা
+    const result = await propertiesCollection.insertOne(propertyData);
+    res.status(201).json(result);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to add property", error: error.message });
+  }
+});
+
+app.get('/properties/owner/:email', async (req, res) => {
+  try {
+    const ownerEmail = req.params.email;
+
+    const query = { "ownerInformation.email": ownerEmail }; 
+
+    const result = await propertiesCollection.find(query).toArray();
+    
+    if (!result || result.length === 0) {
+      return res.status(404).json({ message: "No properties found for this owner." });
+    }
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
+});
+
+// URL এর শুরুতে '/' নিশ্চিত করুন
+app.patch('/properties/admin', async (req, res) => {
+  try {
+    const { newStatus, feedback = '' } = req.query;
+    const { id } = req.body; // ফ্রন্টএন্ড থেকে পাঠানো id রিসিভ করা হলো
+
+    if (!id) {
+      return res.status(400).json({ error: "Property ID is required" });
+    }
+
+    const filter = { _id: new ObjectId(id) };
+    
+    // status এবং feedback দুটিই আপডেট করা হচ্ছে
+    const updatedDoc = {
+      $set: {
+        status: newStatus,
+        feedback: feedback 
+      }
+    };
+
+    const result = await propertiesCollection.updateOne(filter, updatedDoc);
+    res.json(result);
+    
+  } catch (error) {
+    console.error("Server Error:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.delete('/properties/admin', async (req, res) => {
+  try {
+    const { id } = req.body;
+    
+    if (!id) {
+      return res.status(400).json({ error: "Property ID is required" });
+    }
+
+    const query = { _id: new ObjectId(id) };
+    const result = await propertiesCollection.deleteOne(query); 
+    
+    res.json(result);
+  } catch (error) {
+    console.error("Delete Error:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+  
+
+  app.post('/reviews', async(req, res)=>{
     const newReview = req.body;
-    const result = reviewsCollection.insertOne(newReview)
+    const result = await reviewsCollection.insertOne(newReview)
     res.json(result)
   })
 
@@ -101,17 +180,14 @@ app.get("/favorites/check", async (req, res) => {
             return res.status(400).json({ isFavorite: false, message: "Missing query parameters" });
         }
 
-        // ডাটাবেসে এই ইউজার এবং প্রোপার্টির কোনো রেকর্ড আছে কিনা চেক করা
         const favorite = await favoritesCollection.findOne({ 
             tenantEmail: email, 
             propertyId: propertyId 
         });
 
         if (favorite) {
-            // যদি খুঁজে পাওয়া যায়
             return res.json({ isFavorite: true, favoriteId: favorite._id });
         } else {
-            // যদি খুঁজে না পাওয়া যায়
             return res.json({ isFavorite: false });
         }
     } catch (error) {
