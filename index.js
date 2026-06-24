@@ -32,7 +32,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
 
-    // await client.connect();
+    await client.connect();
     const database = client.db("StayNest");
     const propertiesCollection = database.collection("properties");
     const reviewsCollection = database.collection("reviews");
@@ -234,7 +234,7 @@ async function run() {
       }
     });
 
-    // GET: Check if favorite (এটি /favorites এর আগে বা পরে থাকতে পারে, সমস্যা নেই)
+    // GET: Check if favorite 
     app.get("/favorites/check", async (req, res) => {
       try {
         const { email, propertyId } = req.query;
@@ -292,6 +292,14 @@ async function run() {
       res.json(result)
     })
 
+    app.get('/bookings', async (req, res) => {
+
+      const cursor = bookingsCollection.find();
+      const result = await cursor.toArray()
+      res.json(result)
+
+    });
+
     app.post('/payment-success', async (req, res) => {
       try {
         const { bookingId, sessionId, amount, currency, customerEmail } = req.body;
@@ -334,6 +342,11 @@ async function run() {
         res.status(500).json({ success: false, error: error.message });
       }
     });
+
+    app.get('/transactions', async (req, res) => {
+      const result = await transactionsCollection.find().toArray()
+      res.json(result)
+    })
     app.get('/bookings/owner', async (req, res) => {
       const { ownerEmail } = req.query;
       const query = { ownerEmail: ownerEmail };
@@ -354,7 +367,7 @@ async function run() {
 
 
 
-    // await client.db("admin").command({ ping: 1 });
+    await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
 
