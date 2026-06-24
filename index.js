@@ -78,7 +78,7 @@ async function run() {
     });
 
 
-    app.post('/owner/properties', async (req, res) => {
+    app.post('/properties/owner', async (req, res) => {
       try {
         const propertyData = req.body;
 
@@ -210,19 +210,31 @@ async function run() {
       res.json(result)
     })
 
-    app.post('/favorites', (req, res) => {
-      const favorites = req.body;
-      const result = favoritesCollection.insertOne(favorites)
-      res.json(result)
-    })
-
-    app.get('/favorites', async (req, res) => {
-      const cursor = favoritesCollection.find({})
-      const result = await cursor.toArray()
-      res.json(result)
-
+    // POST: Add to favorites
+    app.post('/favorites', async (req, res) => {
+      try {
+        const favorites = req.body;
+        const result = await favoritesCollection.insertOne(favorites);
+        res.status(201).json(result);
+      } catch (error) {
+        console.error("Error in POST /favorites:", error);
+        res.status(500).json({ error: "Internal server error" });
+      }
     });
 
+    // GET: Get all favorites
+    app.get('/favorites', async (req, res) => {
+      try {
+        const cursor = favoritesCollection.find({});
+        const result = await cursor.toArray();
+        res.json(result);
+      } catch (error) {
+        console.error("Error in GET /favorites:", error);
+        res.status(500).json({ error: "Internal server error" });
+      }
+    });
+
+    // GET: Check if favorite (এটি /favorites এর আগে বা পরে থাকতে পারে, সমস্যা নেই)
     app.get("/favorites/check", async (req, res) => {
       try {
         const { email, propertyId } = req.query;
@@ -242,24 +254,34 @@ async function run() {
           return res.json({ isFavorite: false });
         }
       } catch (error) {
-        console.error(error);
+        console.error("Error in /favorites/check:", error);
         res.status(500).json({ isFavorite: false, error: "Internal server error" });
       }
     });
 
+    // DELETE: Remove from favorites
     app.delete('/favorites', async (req, res) => {
       try {
         const { favItemId, tenantEmail } = req.query;
+
+        if (!favItemId || !tenantEmail) {
+          return res.status(400).json({ error: "Missing parameters" });
+        }
+
+        // ObjectId ভ্যালিডেশন (সার্ভার ক্র্যাশ রোধ করতে)
+        if (!ObjectId.isValid(favItemId)) {
+          return res.status(400).json({ error: "Invalid Favorite Item ID format" });
+        }
+
         const query = {
           _id: new ObjectId(favItemId),
           tenantEmail: tenantEmail
         };
 
-
         const removedDoc = await favoritesCollection.deleteOne(query);
         res.json(removedDoc);
       } catch (error) {
-        console.log(error.message);
+        console.error("Error in DELETE /favorites:", error);
         res.status(500).json({ error: "Failed to remove from favorites" });
       }
     });
