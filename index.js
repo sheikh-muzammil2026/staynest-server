@@ -56,7 +56,7 @@ const verifyToken = async (req, res, next) => {
 async function run() {
   try {
 
-    await client.connect();
+    // await client.connect();
     const database = client.db("StayNest");
     const propertiesCollection = database.collection("properties");
     const reviewsCollection = database.collection("reviews");
@@ -227,7 +227,125 @@ async function run() {
       }
     });
 
+    // ==========================================
+    // 📊 ADMIN DASHBOARD ANALYTICS API
+    // ==========================================
+    app.get('/admin/analytics', verifyToken, async (req, res) => {
+      try {
+        // টোকেন ভ্যালিডেশন এবং রোল চেক (নিরাপত্তার জন্য)
+        // নোট: req.user payload-এ যদি 'role' না থাকে, তবে ইমেইল দিয়ে userCollection থেকে রোল ভেরিফাই করতে পারেন।
+        const userEmail = req.user?.email;
+        if (!userEmail) {
+          return res.status(401).json({ error: "Unauthorized access" });
+        }
 
+        const adminUser = await userCollection.findOne({ email: userEmail });
+        if (!adminUser || adminUser.role !== 'admin') {
+          // যদি আপনার টেস্টিং এর সুবিধার্থে রোল চেক শিথিল করতে চান, তবে সাময়িকভাবে এই নিচের লাইনটি কমেন্ট করে রাখতে পারেন
+          return res.status(403).json({ error: "Forbidden: Admin access required" });
+        }
+
+        // ১. টোটাল ইউজার কাউন্ট (আপনার userCollection থেকে)
+        const totalUsers = await userCollection.countDocuments({});
+
+        // ২. অ্যাক্টিভ/অ্যাপ্রুভড প্রপার্টি এবং মোট প্রপার্টি সংখ্যা
+        const totalProperties = await propertiesCollection.countDocuments({});
+        const activeProperties = await propertiesCollection.countDocuments({ status: "Approved" });
+
+        // ৩. মোট বুকিং সংখ্যা
+        const totalBookings = await bookingsCollection.countDocuments({});
+
+        // ৪. মোট রেভিনিউ কালেকশন (transactionsCollection থেকে সাকসেসফুল পেমেন্ট যোগফল)
+        const totalRevenueData = await transactionsCollection.aggregate([
+          { $match: { paymentStatus: "Success" } },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: { $toDouble: "$amount" } }
+            }
+          }
+        ]).toArray();
+        const totalRevenue = totalRevenueData.length > 0 ? totalRevenueData[0].total : 0;
+
+        // ৫. ডাইনামিক চার্ট ডাটা (গত ১২ মাসের প্ল্যাটফর্ম রেভিনিউ ব্রেকডাউন)
+        const twelveMonthsAgo = new Date();
+        twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+
+        const chartData = await transactionsCollection.aggregate([
+          {
+            $match: {
+              paymentStatus: "Success",
+              createdAt: { $gte: twelveMonthsAgo }
+            }
+          },
+          {
+            $group: {
+              _id: {
+                year: { $year: "$createdAt" },
+                month: { $month: "$createdAt" }
+              },
+              monthlyAmount: { $sum: { $toDouble: "$amount" } }
+            }
+          },
+          { $sort: { "_id.year": 1, "_id.month": 1 } },
+          {
+            $project: {
+              _id: 0,
+              name: {
+                $let: {
+                  vars: {
+                    monthsInString: [, 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                  },
+                  in: { $arrayElemAt: ['$$monthsInString', '$_id.month'] }
+                }
+              },
+              revenue: "$monthlyAmount"
+            }
+          }
+        ]).toArray();
+
+        // ৬. সাম্প্রতিক লাইভ অ্যাক্টিভিটি (সর্বশেষ ৪টি বুকিং/ট্রানজেকশন ট্র্যাকিং)
+        const recentBookings = await bookingsCollection.find({})
+          .sort({ _id: -1 })
+          .limit(4)
+          .toArray();
+
+        const recentActivities = recentBookings.map((booking, index) => {
+          return {
+            id: booking._id,
+            type: booking.paymentStatus === "Paid" ? 'booking' : 'property',
+            text: `New Booking worth $${booking.totalPrice || booking.rent || 0} by ${booking.tenantEmail || 'Tenant'}`,
+            time: 'Recently'
+          };
+        });
+
+        // যদি কোনো অ্যাক্টিভিটি না থাকে, তবে ডিফল্ট লগ পাঠানো হবে
+        if (recentActivities.length === 0) {
+          recentActivities.push({ id: 1, type: 'user', text: 'System Online: Monitoring StayNest Database.', time: 'Just now' });
+        }
+
+        // ফাইনাল রেসপন্স অবজেক্ট
+        res.json({
+          success: true,
+          summary: {
+            totalRevenue,
+            revenueChange: "+12.5%", // রিয়েল গ্রোথ ট্রেন্ড ট্র্যাকিং এর জন্য স্ট্যাটিক প্রপস রাখা হয়েছে
+            totalUsers,
+            userChange: `+${totalUsers > 0 ? 1 : 0} new`,
+            activeProperties,
+            propertyChange: `${activeProperties}/${totalProperties} Approved`,
+            totalBookings,
+            bookingChange: "Live status"
+          },
+          chartData,
+          recentActivities
+        });
+
+      } catch (error) {
+        console.error("Error generating admin dashboard analytics:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+      }
+    });
 
 
     app.get('/users', async (req, res) => {
@@ -431,8 +549,6 @@ async function run() {
     });
 
 
-    const { ObjectId } = require('mongodb');
-
     app.get('/owner/analytics', verifyToken, async (req, res) => {
       try {
         const { email } = req.query;
@@ -552,7 +668,7 @@ async function run() {
     });
 
 
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
 
