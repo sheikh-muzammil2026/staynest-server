@@ -32,7 +32,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
 
-    await client.connect();
+    // await client.connect();
     const database = client.db("StayNest");
     const propertiesCollection = database.collection("properties");
     const reviewsCollection = database.collection("reviews");
@@ -40,42 +40,6 @@ async function run() {
     const transactionsCollection = database.collection("transactions");
     const favoritesCollection = database.collection("favorites");
     const userCollection = database.collection("user");
-
-
-    // app.get('/properties', async (req, res) => {
-    //   try {
-    //     const { search, type, sort } = req.query;
-    //     let query = { status: "Approved" };
-    //     if (search) {
-    //       query.location = { $regex: search, $options: "i" };
-    //     }
-
-    //     if (type && type !== "all") {
-    //       query.propertyType = type;
-    //     }
-
-
-    //     let sortOption = {};
-    //     if (sort === "low-to-high") {
-    //       sortOption.rent = 1;
-    //     } else if (sort === "high-to-low") {
-    //       sortOption.rent = -1;
-    //     } else {
-    //       sortOption.createdAt = -1;
-    //     }
-
-
-    //     const properties = await propertiesCollection
-    //       .find(query)
-    //       .sort(sortOption)
-    //       .toArray();
-
-    //     res.json(properties);
-    //   } catch (error) {
-    //     console.error("Error fetching properties:", error);
-    //     res.status(500).json({ message: "Server error occurred while fetching properties" });
-    //   }
-    // });
 
     app.get('/properties', async (req, res) => {
       try {
@@ -452,7 +416,7 @@ async function run() {
     });
 
 
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
 
