@@ -32,7 +32,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
 
-    // await client.connect();
+    await client.connect();
     const database = client.db("StayNest");
     const propertiesCollection = database.collection("properties");
     const reviewsCollection = database.collection("reviews");
@@ -42,16 +42,92 @@ async function run() {
     const userCollection = database.collection("user");
 
 
+    // app.get('/properties', async (req, res) => {
+    //   try {
+    //     const { search, type, sort } = req.query;
+    //     let query = { status: "Approved" };
+    //     if (search) {
+    //       query.location = { $regex: search, $options: "i" };
+    //     }
+
+    //     if (type && type !== "all") {
+    //       query.propertyType = type;
+    //     }
+
+
+    //     let sortOption = {};
+    //     if (sort === "low-to-high") {
+    //       sortOption.rent = 1;
+    //     } else if (sort === "high-to-low") {
+    //       sortOption.rent = -1;
+    //     } else {
+    //       sortOption.createdAt = -1;
+    //     }
+
+
+    //     const properties = await propertiesCollection
+    //       .find(query)
+    //       .sort(sortOption)
+    //       .toArray();
+
+    //     res.json(properties);
+    //   } catch (error) {
+    //     console.error("Error fetching properties:", error);
+    //     res.status(500).json({ message: "Server error occurred while fetching properties" });
+    //   }
+    // });
+
     app.get('/properties', async (req, res) => {
       try {
-        const properties = await propertiesCollection.find({}).toArray();
-        res.json(properties)
+        const { search, type, sort, page = 1, limit = 9 } = req.query;
+
+        // পেজ এবং লিমিট সংখ্যায় রূপান্তর
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit);
+        const skip = (pageNum - 1) * limitNum;
+
+        let query = { status: "Approved" };
+        if (search) {
+          query.location = { $regex: search, $options: "i" };
+        }
+
+        if (type && type !== "all") {
+          query.propertyType = type;
+        }
+
+        let sortOption = {};
+        if (sort === "low-to-high") {
+          sortOption.rent = 1;
+        } else if (sort === "high-to-low") {
+          sortOption.rent = -1;
+        } else {
+          sortOption.createdAt = -1;
+        }
+
+        // মোট ম্যাচ হওয়া প্রোপার্টির সংখ্যা বের করা (পেজিনেশন ক্যালকুলেশনের জন্য)
+        const totalProperties = await propertiesCollection.countDocuments(query);
+        const totalPages = Math.ceil(totalProperties / limitNum);
+
+        // ডেটা ফেচ করা
+        const properties = await propertiesCollection
+          .find(query)
+          .sort(sortOption)
+          .skip(skip)
+          .limit(limitNum)
+          .toArray();
+
+        // অবজেক্ট আকারে মেটাডেটা সহ পাঠানো
+        res.json({
+          properties,
+          totalPages,
+          currentPage: pageNum,
+          totalProperties
+        });
       } catch (error) {
         console.error("Error fetching properties:", error);
-
+        res.status(500).json({ message: "Server error occurred while fetching properties" });
       }
     });
-
     app.get('/properties/:id', async (req, res) => {
       try {
         const id = req.params.id;
@@ -109,6 +185,14 @@ async function run() {
     });
 
 
+
+    app.get('/admin/properties', async (req, res) => {
+      const result = await propertiesCollection.find().toArray();
+      res.json(result);
+
+    });
+
+
     app.patch('/properties/admin', async (req, res) => {
       try {
         const { newStatus, feedback = '' } = req.query;
@@ -154,6 +238,8 @@ async function run() {
         res.status(500).json({ error: "Internal Server Error" });
       }
     });
+
+
 
 
     app.get('/users', async (req, res) => {
@@ -366,7 +452,7 @@ async function run() {
     });
 
 
-    // await client.db("admin").command({ ping: 1 });
+    await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
 
