@@ -56,7 +56,7 @@ const verifyToken = async (req, res, next) => {
 async function run() {
   try {
 
-    // await client.connect();
+    await client.connect();
     const database = client.db("StayNest");
     const propertiesCollection = database.collection("properties");
     const reviewsCollection = database.collection("reviews");
@@ -430,6 +430,118 @@ async function run() {
 
     });
 
+
+    const { ObjectId } = require('mongodb');
+
+    app.get('/owner/analytics', verifyToken, async (req, res) => {
+      try {
+        const { email } = req.query;
+
+        if (!email) {
+          return res.status(400).json({ error: "Owner email is required" });
+        }
+
+        // ১. Total Properties
+        const totalProperties = await propertiesCollection.countDocuments({
+          "ownerInformation.email": email
+        });
+
+        // ২. Total Bookings
+        const totalBookings = await bookingsCollection.countDocuments({
+          ownerEmail: email
+        });
+
+        // ৩. Total Earnings এর জন্য বুকিং ডাটা নিয়ে আসা
+        const ownerPaidBookings = await bookingsCollection
+          .find({ ownerEmail: email, paymentStatus: "Paid" }, { projection: { _id: 1 } })
+          .toArray();
+
+        // যদি কোনো পেইড বুকিং না থাকে, সরাসরি ০ রিটার্ন
+        if (ownerPaidBookings.length === 0) {
+          return res.json({
+            summary: { totalEarnings: 0, totalProperties, totalBookings },
+            chartData: []
+          });
+        }
+
+        // 💡 টাইপ ফিক্স: আমরা ObjectId এবং String দুই ধরণের আইডি-ই একটি অ্যারেতে রাখব
+        const bookingObjectIds = ownerPaidBookings.map(b => b._id);
+        const bookingStringIds = ownerPaidBookings.map(b => b._id.toString());
+        const allBookingIds = [...bookingObjectIds, ...bookingStringIds];
+
+        // ৪. টোটাল আর্নিং ক্যালকুলেশন (অ্যাগ্রিগেশন)
+        const totalEarningsData = await transactionsCollection.aggregate([
+          {
+            $match: {
+              bookingId: { $in: allBookingIds },
+              paymentStatus: "Success"
+            }
+          },
+          {
+            // 💡 টাইপ ফিক্স: পরিমাণটি যদি স্ট্রিং আকারে থাকে তবে তা সংখ্যায় (Double/Int) রূপান্তর করা হলো
+            $group: {
+              _id: null,
+              total: { $sum: { $toDouble: "$amount" } }
+            }
+          }
+        ]).toArray();
+
+        const totalEarnings = totalEarningsData.length > 0 ? totalEarningsData[0].total : 0;
+
+        // ৫. চার্ট ডাটা ক্যালকুলেশন
+        const twelveMonthsAgo = new Date();
+        twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+
+        const chartData = await transactionsCollection.aggregate([
+          {
+            $match: {
+              bookingId: { $in: allBookingIds },
+              paymentStatus: "Success",
+              createdAt: { $gte: twelveMonthsAgo }
+            }
+          },
+          {
+            $group: {
+              _id: {
+                year: { $year: "$createdAt" },
+                month: { $month: "$createdAt" }
+              },
+              monthlyAmount: { $sum: { $toDouble: "$amount" } } // স্ট্রিং থাকলেও ডাবল এ কনভার্ট হবে
+            }
+          },
+          { $sort: { "_id.year": 1, "_id.month": 1 } },
+          {
+            $project: {
+              _id: 0,
+              name: {
+                $let: {
+                  vars: {
+                    monthsInString: [, 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                  },
+                  in: { $arrayElemAt: ['$$monthsInString', '$_id.month'] }
+                }
+              },
+              earnings: "$monthlyAmount"
+            }
+          }
+        ]).toArray();
+
+        // ফাইনাল রেসপন্স
+        res.json({
+          summary: {
+            totalEarnings,
+            totalProperties,
+            totalBookings
+          },
+          chartData
+        });
+
+      } catch (error) {
+        console.error("Error fetching owner analytics:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+      }
+    });
+
     app.get('/bookings/tenant', async (req, res) => {
       const { tenantEmail } = req.query;
       const query = { tenantEmail: tenantEmail };
@@ -440,7 +552,7 @@ async function run() {
     });
 
 
-    // await client.db("admin").command({ ping: 1 });
+    await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
 
