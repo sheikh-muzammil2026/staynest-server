@@ -6,6 +6,7 @@ const express = require('express');
 const app = express();
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const { createRemoteJWKSet, jwtVerify } = require('jose-cjs');
 
 require('dotenv').config();
 
@@ -28,6 +29,29 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   }
 });
+
+const JWKS = createRemoteJWKSet(new URL(`${process.env.CLIENT_URI}/api/auth/jwks`))
+const verifyToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  console.log(authHeader, "authheader")
+  if (!authHeader || !authHeader.startsWith("Bearer")) {
+    return res.status(401).json({ msg: "Unathorization" })
+  }
+
+  const token = authHeader.split(" ")[1]
+  if (!token) {
+    return res.status(401).json({ msg: "Unathorization" })
+  }
+  try {
+    const { payload } = await jwtVerify(token, JWKS)
+    req.user = payload
+    next()
+  } catch (error) {
+    console.log(error)
+    return res.status(401).json({ msg: "Unathorization" })
+
+  }
+}
 
 async function run() {
   try {
@@ -118,7 +142,7 @@ async function run() {
     });
 
 
-    app.post('/properties/owner', async (req, res) => {
+    app.post('/properties/owner', verifyToken, async (req, res) => {
       try {
         const propertyData = req.body;
 
