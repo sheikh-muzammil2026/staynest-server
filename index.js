@@ -371,7 +371,7 @@ async function run() {
      * @route POST /payment-success
      * @desc Handle triggers on successful Stripe payments (Protected)
      */
-    app.post('/payment-success', verifyToken, async (req, res) => {
+    app.post('/payment-success', async (req, res) => {
       try {
         const { bookingId, sessionId, amount, currency, customerEmail } = req.body;
         if (!bookingId || !sessionId) {
