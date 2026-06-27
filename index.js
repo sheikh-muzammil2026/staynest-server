@@ -434,7 +434,6 @@ async function run() {
     app.get('/reviews/:propertyId', async (req, res) => {
       try {
         const { propertyId } = req.params;
-        // আপনার ডেটাবেজে propertyId যেভাবে সেভ করা আছে (String নাকি ObjectId) সে অনুযায়ী কুয়েরি করবেন
         const query = { propertyId: propertyId };
 
         const reviews = await reviewsCollection.find(query).toArray();
@@ -455,9 +454,19 @@ async function run() {
       }
     });
 
+
     app.get('/favorites', verifyToken, async (req, res) => {
       try {
-        const result = await favoritesCollection.find({}).toArray();
+        const { email } = req.query;
+
+        if (!email) {
+          return res.status(400).json({ error: "Email query parameter is required" });
+        }
+
+        const query = { tenantEmail: email.trim() };
+
+        const result = await favoritesCollection.find(query).toArray();
+
         res.json(result);
       } catch (error) {
         console.error("Error in GET /favorites:", error);
