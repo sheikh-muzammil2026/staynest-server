@@ -732,7 +732,7 @@ app.delete('/properties/owner/:id', async (req, res) => {
     // ==========================================
 // 🔄 ২. UPDATE PROPERTY BY ID
 // ==========================================
-app.put('/properties/:id', async (req, res) => {
+app.patch('/properties/owner:id', async (req, res) => {
   try {
     const { id } = req.params;
     const updatedData = req.body; // ফ্রন্টেন্ড থেকে আসা নতুন তথ্য
