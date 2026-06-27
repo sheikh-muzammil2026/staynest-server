@@ -427,6 +427,24 @@ async function run() {
       }
     });
 
+    /**
+ * @route GET /reviews/:propertyId
+ * @desc Get all reviews for a specific property (Public/Protected depending on choice)
+ */
+    app.get('/reviews/:propertyId', async (req, res) => {
+      try {
+        const { propertyId } = req.params;
+        // আপনার ডেটাবেজে propertyId যেভাবে সেভ করা আছে (String নাকি ObjectId) সে অনুযায়ী কুয়েরি করবেন
+        const query = { propertyId: propertyId };
+
+        const reviews = await reviewsCollection.find(query).toArray();
+        res.json(reviews);
+      } catch (error) {
+        console.error("Error fetching reviews:", error);
+        res.status(500).json({ error: "Internal Server Error while fetching reviews" });
+      }
+    });
+
     app.post('/favorites', verifyToken, async (req, res) => {
       try {
         const result = await favoritesCollection.insertOne(req.body);
