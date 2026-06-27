@@ -444,6 +444,21 @@ async function run() {
       }
     });
 
+    /**
+ * @route GET /public-reviews
+ * @desc Get all tenant reviews for the landing page marquee (Public)
+ */
+    app.get('/public-reviews', async (req, res) => {
+      try {
+
+        const result = await reviewsCollection.find({}).toArray();
+        res.json(result);
+      } catch (error) {
+        console.error("Error fetching public reviews:", error);
+        res.status(500).json({ error: "Internal server error while fetching reviews" });
+      }
+    });
+
     app.post('/favorites', verifyToken, async (req, res) => {
       try {
         const result = await favoritesCollection.insertOne(req.body);
