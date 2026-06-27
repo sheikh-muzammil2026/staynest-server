@@ -55,6 +55,13 @@ const verifyToken = async (req, res, next) => {
 
 async function run() {
   try {
+
+    if (process.env.NODE_ENV !== 'production') {
+      await client.connect();
+      await client.db("admin").command({ ping: 1 });
+      console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    }
+
     // Database and Collections Setup
     const database = client.db("StayNest");
     const propertiesCollection = database.collection("properties");
@@ -194,7 +201,7 @@ async function run() {
 
         if (!id) return res.status(400).json({ error: "Property ID is required" });
 
-        delete updatedData._id; 
+        delete updatedData._id;
 
         const filter = { _id: new ObjectId(id) };
         const updateDoc = { $set: updatedData };
@@ -349,7 +356,7 @@ async function run() {
         const filter = { _id: new ObjectId(id) };
         const updatedDoc = { $set: { status: status } };
         const result = await bookingsCollection.updateOne(filter, updatedDoc);
-        
+
         if (result.modifiedCount === 0) {
           return res.status(404).json({ error: "Booking not found or no change made" });
         }
@@ -714,7 +721,7 @@ async function run() {
         const recentActivities = recentBookings.map((booking) => ({
           id: booking._id,
           type: booking.paymentStatus === "Paid" ? "payment" : "booking",
-          text: booking.paymentStatus === "Paid" 
+          text: booking.paymentStatus === "Paid"
             ? `Invoice for '${booking.propertyName || 'Property'}' successfully paid.`
             : `Your booking request for '${booking.propertyName || 'Property'}' is registered.`,
           time: "Recently"
