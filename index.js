@@ -667,6 +667,77 @@ async function run() {
 
     });
 
+    // ==========================================
+// 📊 TENANT DASHBOARD ANALYTICS API
+// ==========================================
+app.get('/tenant/analytics', async (req, res) => {
+  try {
+    const { email } = req.query;
+
+    if (!email) {
+      return res.status(400).json({ error: "Tenant email is required" });
+    }
+
+    // ১. টোটাল বুকিং সংখ্যা
+    const totalBookings = await bookingsCollection.countDocuments({ tenantEmail: email });
+
+    // ২. ফেভারিট প্রপার্টি সংখ্যা
+    const totalFavorites = await favoritesCollection.countDocuments({ tenantEmail: email });
+
+    // ৩. টোটাল লিজ/পেইড বুকিংয়ের মোট খরচ হিসাব করা
+    const totalSpentData = await bookingsCollection.aggregate([
+      { 
+        $match: { 
+          tenantEmail: email, 
+          paymentStatus: "Paid" 
+        } 
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: { $toDouble: { $ifNull: ["$totalPrice", { $ifNull: ["$rent", 0] }] } } }
+        }
+      }
+    ]).toArray();
+
+    const totalSpent = totalSpentData.length > 0 ? totalSpentData[0].total : 0;
+
+    // ৪. সাম্প্রতিক অ্যাক্টিভিটি (টেন্যান্টের শেষ ৩টি বুকিং)
+    const recentBookings = await bookingsCollection.find({ tenantEmail: email })
+      .sort({ _id: -1 })
+      .limit(3)
+      .toArray();
+
+    const recentActivities = recentBookings.map((booking) => ({
+      id: booking._id,
+      type: booking.paymentStatus === "Paid" ? "payment" : "booking",
+      text: booking.paymentStatus === "Paid" 
+        ? `Invoice for '${booking.propertyName || 'Property'}' successfully paid.`
+        : `Your booking request for '${booking.propertyName || 'Property'}' is registered.`,
+      time: "Recently"
+    }));
+
+    // কোনো অ্যাক্টিভিটি না থাকলে ডিফল্ট মেসেজ
+    if (recentActivities.length === 0) {
+      recentActivities.push({ id: "default", type: "system", text: "Welcome to StayNest! Browse properties to start booking.", time: "Just now" });
+    }
+
+    // রেসপন্স পাঠানো
+    res.json({
+      success: true,
+      summary: {
+        totalBookings,
+        totalFavorites,
+        totalSpent
+      },
+      recentActivities
+    });
+
+  } catch (error) {
+    console.error("Error fetching tenant analytics:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
 
     // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
