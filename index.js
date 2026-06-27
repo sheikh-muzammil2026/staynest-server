@@ -703,6 +703,31 @@ app.patch('/bookings/status', async (req, res) => {
     });
 
     // ==========================================
+// 🗑️ DELETE OWNER PROPERTY BY ID
+// ==========================================
+app.delete('/properties/owner/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ error: "Property ID is required" });
+    }
+
+    const filter = { _id: new ObjectId(id) };
+    const result = await propertiesCollection.deleteOne(filter);
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: "Property not found" });
+    }
+
+    res.json({ success: true, message: "Property successfully deleted" });
+
+  } catch (error) {
+    console.error("Error deleting property:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+    // ==========================================
 // 📊 TENANT DASHBOARD ANALYTICS API
 // ==========================================
 app.get('/tenant/analytics', async (req, res) => {
