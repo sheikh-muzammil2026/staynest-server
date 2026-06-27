@@ -548,6 +548,41 @@ async function run() {
 
     });
 
+    // ==========================================
+// 🔔 UPDATE BOOKING STATUS (APPROVE/REJECT)
+// ==========================================
+app.patch('/bookings/status', async (req, res) => {
+  try {
+    const { id, status } = req.body;
+
+    if (!id || !status) {
+      return res.status(400).json({ error: "Booking ID and Status are required" });
+    }
+
+    // স্টেটাস ভ্যালিডেশন
+    if (status !== 'Approved' && status !== 'Rejected') {
+      return res.status(400).json({ error: "Invalid status type" });
+    }
+
+    const filter = { _id: new ObjectId(id) };
+    const updatedDoc = {
+      $set: { status: status }
+    };
+
+    const result = await bookingsCollection.updateOne(filter, updatedDoc);
+    
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ error: "Booking not found or no change made" });
+    }
+
+    res.json({ success: true, message: `Booking status updated to ${status}` });
+
+  } catch (error) {
+    console.error("Error updating booking status:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 
     app.get('/owner/analytics', verifyToken, async (req, res) => {
       try {
