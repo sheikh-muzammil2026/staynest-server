@@ -727,6 +727,33 @@ app.delete('/properties/owner/:id', async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
+
+    // ==========================================
+// 🔄 ২. UPDATE PROPERTY BY ID
+// ==========================================
+app.put('/properties/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updatedData = req.body; // ফ্রন্টেন্ড থেকে আসা নতুন তথ্য
+
+    if (!id) return res.status(400).json({ error: "Property ID is required" });
+
+    // _id বাদ দিয়ে বাকি ডাটা আপডেট ফিল্ডে রাখা (Mongo যাতে এরর না দেয়)
+    delete updatedData._id; 
+
+    const filter = { _id: new ObjectId(id) };
+    const updateDoc = { $set: updatedData };
+
+    const result = await propertiesCollection.updateOne(filter, updateDoc);
+    if (result.matchedCount === 0) return res.status(404).json({ error: "Property not found" });
+
+    res.json({ success: true, message: "Property successfully updated" });
+  } catch (error) {
+    console.error("Error updating property:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
     // ==========================================
 // 📊 TENANT DASHBOARD ANALYTICS API
 // ==========================================
