@@ -75,23 +75,25 @@ async function run() {
     // 🏠 PROPERTY MANAGEMENT ENDPOINTS
     // ==========================================
 
-    /**
+/**
      * @route GET /properties
      * @desc Get all approved properties with pagination, search, and filtering (Public)
      */
     app.get('/properties', async (req, res) => {
       try {
         const { search, type, sort, page = 1, limit = 9 } = req.query;
-        const pageNum = parseInt(page);
-        const limitNum = parseInt(limit);
+        const pageNum = parseInt(page) || 1;
+        const limitNum = parseInt(limit) || 9;
         const skip = (pageNum - 1) * limitNum;
 
-        let query = { status: "Approved" };
+        let query = { status: "Approved" }; 
+        
         if (search) {
           query.location = { $regex: search, $options: "i" };
         }
-        if (type && type !== "all") {
-          query.propertyType = type;
+        
+        if (type && type !== "all" && type !== "") {
+          query.propertyType = { $regex: `^${type}$`, $options: "i" };
         }
 
         let sortOption = {};
