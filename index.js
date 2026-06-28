@@ -1,6 +1,3 @@
-const dns = require('node:dns');
-dns.setServers(['1.1.1.1', '1.0.0.1']);
-
 const express = require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
@@ -56,12 +53,7 @@ const verifyToken = async (req, res, next) => {
 async function run() {
   try {
 
-    if (process.env.NODE_ENV !== 'production') {
-      await client.connect();
-      await client.db("admin").command({ ping: 1 });
-      console.log("Pinged your deployment. You successfully connected to MongoDB!");
-    }
-
+    
     // Database and Collections Setup
     const database = client.db("StayNest");
     const propertiesCollection = database.collection("properties");
