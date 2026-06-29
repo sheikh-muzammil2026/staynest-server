@@ -550,7 +550,37 @@ async function run() {
         res.status(500).json({ error: "Internal Server Error" });
       }
     });
+app.patch('/properties/admin/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { propertyTitle, location, rent } = req.body;
 
+    if (!id) return res.status(400).json({ message: "Property ID is required" });
+
+    const filter = { _id: new ObjectId(id) };
+    const updateDoc = {
+      $set: {
+        propertyTitle,
+        location,
+        rent: Number(rent)
+      }
+    };
+
+    const result = await propertiesCollection.updateOne(filter, updateDoc);
+    
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ message: "Property not found" });
+    }
+
+    res.json({
+      acknowledged: result.acknowledged,
+      modifiedCount: result.modifiedCount
+    });
+  } catch (error) {
+    console.error("Error updating property:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
     app.delete('/properties/admin', verifyToken, async (req, res) => {
       try {
         const { id } = req.body;
