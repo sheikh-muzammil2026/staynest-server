@@ -550,7 +550,7 @@ async function run() {
         res.status(500).json({ error: "Internal Server Error" });
       }
     });
-app.patch('/properties/admin/:id', verifyToken, async (req, res) => {
+app.patch('/api/properties/admin/:id', verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { propertyTitle, location, rent } = req.body;
